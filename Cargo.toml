@@ -6,6 +6,7 @@ edition = "2018"
 description = "Idiomatic http client over curl"
 
 [dependencies]
-curl={version="0.4", path="../curl-rust"}
+curl-sys={version="0.4" }
 url="1.7"
 http="0.1"
+libc="0.2.42"

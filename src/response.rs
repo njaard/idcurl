@@ -1,31 +1,54 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::io::Read;
+use std::collections::VecDeque;
 
 use crate::client::*;
+use crate::header::*;
 use crate::*;
 
+pub(crate) struct ResponseData
+{
+	pub(crate) read_queue: VecDeque<u8>,
+	pub(crate) headers_done: bool,
+	pub(crate) transfer_done: bool,
+	pub(crate) headers: HeaderMap,
+	pub(crate) status_code: StatusCode,
+}
+
+impl ResponseData
+{
+	pub(crate) fn new() -> Self
+	{
+		Self
+		{
+			read_queue: VecDeque::new(),
+			headers_done: false,
+			transfer_done: false,
+			headers: HeaderMap::new(),
+			status_code: StatusCode::NOT_IMPLEMENTED,
+		}
+	}
+}
 
 pub struct Response
 {
-	pub(crate) h: RefCell<curl::multi::Easy2Handle<Tranceiver>>,
-	pub(crate) tx: Rc<RefCell<TranceiverData>>,
-	pub(crate) multi: curl::multi::Multi,
+	pub(crate) client: Client,
+	pub(crate) rd: Box<ResponseData>,
+//	pub(crate) h: RefCell<curl::multi::Easy2Handle<Tranceiver>>,
+//	pub(crate) tx: Rc<RefCell<TranceiverData>>,
+//	pub(crate) multi: curl::multi::Multi,
 }
 
 impl Response
 {
 	pub fn status(&self) -> StatusCode
 	{
-		StatusCode::from_u16(
-			self.h.borrow_mut().get_req().response_code().expect("no response code")
-				as u16
-		)
+		self.rd.status_code
 	}
 
 	pub fn content_length(&self) -> Option<u64>
 	{
-		None
+		self.header(CONTENT_LENGTH)
+			.map(|v| v.to_str().ok()?.parse().ok())?
 	}
 
 	pub fn text_as_utf8(&mut self) -> std::io::Result<String>
@@ -39,6 +62,11 @@ impl Response
 		std::io::copy(self, w)
 	}
 
+	pub fn header<K: AsHeaderName>(&self, k: K) -> Option<&HeaderValue>
+	{
+		self.headers().get(k)
+	}
+
 	pub fn data(&mut self)
 		-> std::io::Result<Vec<u8>>
 	{
@@ -47,8 +75,13 @@ impl Response
 		Ok(d)
 	}
 
-	//pub fn headers(&self) -> &Headers
+	pub fn headers(&self) -> &HeaderMap
+	{
+		&self.rd.headers
+	}
 }
+
+
 
 
 impl std::io::Read for Response
@@ -57,25 +90,30 @@ impl std::io::Read for Response
 		-> std::io::Result<usize>
 	{
 		let mut pos = 0;
-		while pos != buf.len() && !self.tx.borrow().transfer_done
+		while pos != buf.len()
 		{
-			let num1;
-			let num2;
+			if self.rd.read_queue.len() == 0 && !self.rd.transfer_done
 			{
-				let mut data = self.tx.borrow_mut();
-				{
-					let (a,b) = data.read_queue.as_slices();
-					num1 = std::cmp::min(buf.len()-pos, a.len());
-					buf[pos .. pos+num1].copy_from_slice(&a[0 .. num1]);
-					pos += num1;
-					num2 = std::cmp::min(buf.len()-pos, b.len());
-					buf[pos .. pos+num2].copy_from_slice(&b[0 .. num2]);
-					pos += num2;
-				}
-				data.read_queue.drain( 0 .. num1+num2 );
+				self.rd.transfer_done = self.client.wait_and_process()?;
+			}
+			if self.rd.read_queue.len() == 0 && self.rd.transfer_done
+			{
+				break;
 			}
 
-			wait_and_do(&mut self.multi, &self.tx).unwrap();
+			let num1;
+			let num2;
+			let data = &mut self.rd;
+			{
+				let (a,b) = data.read_queue.as_slices();
+				num1 = std::cmp::min(buf.len()-pos, a.len());
+				buf[pos .. pos+num1].copy_from_slice(&a[0 .. num1]);
+				pos += num1;
+				num2 = std::cmp::min(buf.len()-pos, b.len());
+				buf[pos .. pos+num2].copy_from_slice(&b[0 .. num2]);
+				pos += num2;
+			}
+			data.read_queue.drain( 0 .. num1+num2 );
 		}
 
 		Ok(pos)

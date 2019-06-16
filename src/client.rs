@@ -1,15 +1,12 @@
+use libc::{c_ulong,c_char,size_t,c_void};
 
-use std::collections::VecDeque;
-use std::rc::Rc;
-use std::cell::RefCell;
-
-use crate::method::*;
-use crate::request::*;
-use crate::response::*;
+use crate::*;
+use crate::header::*;
 
 pub(crate) struct Client
 {
-	multi: curl::multi::Multi,
+	multi: *mut sys::CURLM,
+	easy: *mut sys::CURL,
 //	data: Rc<RefCell<TranceiverData>>,
 }
 
@@ -17,141 +14,285 @@ impl Client
 {
 	pub(crate) fn new() -> Client
 	{
-		Self
+		crate::init();
+		unsafe
 		{
-			multi: curl::multi::Multi::new(),
+			let multi = sys::curl_multi_init();
+			assert!(!multi.is_null());
+			let easy = sys::curl_easy_init();
+			assert!(!easy.is_null());
+			crm(sys::curl_multi_add_handle(
+				multi,
+				easy,
+			)).expect("adding handle");
+
+
+			Self
+			{
+				multi,
+				easy,
+			}
 		}
 	}
 
-	pub(crate) fn execute(mut self, request: Request)
+	pub(crate) fn execute(self, request: Request)
 		-> std::io::Result<Response>
 	{
-		let tx = TranceiverData::new();
-		let tx = Rc::new(RefCell::new(tx));
-		let tv = Tranceiver{ data: tx.clone() };
+		unsafe
+		{
+			let e = self.execute2(request);
+			e
+		}
+	}
 
-		let mut curl = curl::easy::Easy2::new(tv);
-		curl.url(request.url.as_str())?;
+	unsafe fn execute2(mut self, mut request: Request)
+		-> std::io::Result<Response>
+	{
+		let mut rd = Box::new(ResponseData::new());
+		let easy = self.easy;
+
+		sys::curl_easy_reset(easy);
+
+		let url = std::ffi::CString::new(request.url.as_str())?;
+		sys::curl_easy_setopt(easy, sys::CURLOPT_URL);
+		cr(sys::curl_easy_setopt(easy, curl_sys::CURLOPT_URL, url.as_ptr()))?;
 
 		if let Some(n) = request.redirect_limit
 		{
-			curl.max_redirections(n as u32)?;
-			curl.follow_location(true)?;
+			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_FOLLOWLOCATION, 1 as c_ulong))?;
+			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_MAXREDIRS, n as c_ulong))?;
 		}
 
-		let m;
+		let m: (&[u8], bool);
 		match request.method
 		{
-			Method::GET => m=("GET", false),
-			Method::POST => m=("POST", true),
-			Method::PUT => m=("PUT", true),
-			Method::DELETE => m=("DELETE", false),
-			Method::HEAD => m=("HEAD", false),
+			Method::GET => m=(b"GET\0", false),
+			Method::POST => m=(b"POST\0", true),
+			Method::PUT => m=(b"PUT\0", true),
+			Method::DELETE => m=(b"DELETE\0", false),
+			Method::HEAD => m=(b"HEAD\0", false),
+			Method::OPTIONS => m=(b"OPTIONS\0", false),
+			Method::TRACE => m=(b"TRACE\0", false),
 		}
-		// tells curl if we're going to send a body
 		if m.1
-			{ curl.post(true)?; }
-		else
-			{ curl.get(true)?; }
+		{
+			// we plan to send a body
+			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_UPLOAD, 1 as c_ulong))?;
+		}
+		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_CUSTOMREQUEST, m.0.as_ptr()))?;
 
-		curl.custom_request(m.0)?;
+
+		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_HTTPHEADER, request.headers))?;
 
 		if let Some(ref l) = request.content_length
-			{ curl.post_field_size(*l)?; }
-
-		let h = self.multi.add2(curl).unwrap();
-
-		while !tx.borrow().headers_done
 		{
-			wait_and_do(&mut self.multi, &tx).unwrap();
+			cr(sys::curl_easy_setopt(
+				easy, sys::CURLOPT_POSTFIELDSIZE_LARGE,
+				*l as sys::curl_off_t,
+			))?;
 		}
 
-		// now we're ready to start reading payload,
-		// so we can give the user the Response object
+		{
+			let rd = &mut request as &mut Request as *mut Request;
+			cr(sys::curl_easy_setopt(
+				easy,
+				sys::CURLOPT_READDATA,
+				rd,
+			))?;
+		}
+		cr(sys::curl_easy_setopt(
+			easy,
+			sys::CURLOPT_READFUNCTION,
+			read_callback as sys::curl_read_callback
+				as *const sys::curl_read_callback
+		))?;
+
+		{
+			let rd = &mut rd as &mut ResponseData as *mut ResponseData;
+			cr(sys::curl_easy_setopt(
+				easy,
+				sys::CURLOPT_WRITEDATA,
+				rd,
+			))?;
+		}
+		cr(sys::curl_easy_setopt(
+			easy,
+			sys::CURLOPT_WRITEFUNCTION,
+			write_callback as sys::curl_write_callback
+				as *const sys::curl_write_callback
+		))?;
+
+		{
+			let rd = &mut rd as &mut ResponseData as *mut ResponseData;
+			cr(sys::curl_easy_setopt(
+				easy,
+				sys::CURLOPT_HEADERDATA,
+				rd,
+			))?;
+		}
+		cr(sys::curl_easy_setopt(
+			easy,
+			sys::CURLOPT_HEADERFUNCTION,
+			header_callback as sys::curl_write_callback
+				as *const sys::curl_write_callback
+		))?;
+
+		loop
+		{
+			rd.transfer_done = self.wait_and_process()?;
+			if rd.headers_done || rd.transfer_done { break; }
+		}
+		{
+			let mut status: libc::c_long = 0;
+			cr(sys::curl_easy_getinfo(
+				self.easy,
+				sys::CURLINFO_RESPONSE_CODE,
+				&mut status as *mut _
+			))?;
+			rd.status_code = StatusCode::from_u16(status as u16)
+				.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+		}
 
 		let response = Response
 		{
-			tx,
-			h: RefCell::new(h),
-			multi: self.multi,
+			client: self,
+			rd,
 		};
 
 		Ok(response)
 	}
-}
 
-pub(crate) fn wait_and_do(
-	curl: &mut curl::multi::Multi,
-	tx: &RefCell<TranceiverData>,
-
-) -> Result<(), curl::MultiError>
-{
-	curl.wait(&mut [], std::time::Duration::from_secs(100000))?;
-	let count = curl.perform()?;
-	if count == 0
+	pub(crate) fn wait_and_process(&mut self) -> std::io::Result<bool>
 	{
-		let mut tx = tx.borrow_mut();
-		tx.headers_done = true;
-		tx.transfer_done = true;
-	}
-
-	Ok(())
-}
-
-
-pub(crate) struct TranceiverData
-{
-	pub(crate) read_queue: VecDeque<u8>,
-	pub(crate) reader_callback: Option<Box<FnMut(&[u8])>>,
-	pub(crate) headers_done: bool,
-	pub(crate) transfer_done: bool,
-	pub(crate) headers: Vec<Vec<u8>>,
-}
-
-impl TranceiverData
-{
-	fn new() -> Self
-	{
-		Self
+		unsafe
 		{
-			read_queue: VecDeque::new(),
-			reader_callback: None,
-			headers_done: false,
-			transfer_done: false,
-			headers: vec!(),
+			sys::curl_multi_wait(
+				self.multi,
+				std::ptr::null_mut(),
+				0,
+				100000,
+				std::ptr::null_mut(),
+			);
+
+			let mut n_handles = 0;
+			crm(sys::curl_multi_perform(
+				self.multi,
+				&mut n_handles as *mut _,
+			))?;
+			Ok(n_handles == 0)
 		}
 	}
 }
 
-
-pub(crate) struct Tranceiver
+impl Drop for Client
 {
-	data: Rc<RefCell<TranceiverData>>,
+	fn drop(&mut self)
+	{
+		unsafe
+		{
+			sys::curl_multi_remove_handle(self.multi, self.easy);
+			sys::curl_easy_cleanup(self.easy);
+			sys::curl_multi_cleanup(self.multi);
+		}
+	}
 }
 
-impl curl::easy::Handler for Tranceiver
+extern "C" fn write_callback(
+	bytes: *mut c_char,
+	size: size_t,
+	nmemb: size_t,
+	data: *mut c_void
+) -> size_t
 {
-	fn write(&mut self, buf: &[u8]) -> Result<usize, curl::easy::WriteError>
+	unsafe
 	{
-		let mut data = self.data.borrow_mut();
-		data.headers_done = true;
-		data.read_queue.reserve(buf.len());
+		let buf = std::slice::from_raw_parts(bytes as *const u8, size*nmemb);
+		let response = data as *mut ResponseData;
+		let response = &mut *response;
+
+		response.headers_done = true;
+
+		response.read_queue.reserve(buf.len());
 		for &c in buf
-			{ data.read_queue.push_back(c); }
-		if buf.len() == 0 { data.transfer_done = true; }
-		Ok(buf.len())
+			{ response.read_queue.push_back(c); }
+		if buf.len() == 0 { response.transfer_done = true; }
 	}
+	size*nmemb
+}
 
-	fn read(&mut self, _data: &mut [u8]) -> Result<usize, curl::easy::ReadError>
+extern "C" fn read_callback(
+	bytes: *mut c_char,
+	size: size_t,
+	nmemb: size_t,
+	data: *mut c_void
+) -> size_t
+{
+	unsafe
 	{
-		Ok(0)
-	}
+		let buf = std::slice::from_raw_parts_mut(bytes as *mut u8, size*nmemb);
+		let request = data as *mut Request;
+		let request = &mut *request;
 
-	fn header(&mut self, buf: &[u8]) -> bool
-	{
-		eprintln!("header {:?}", String::from_utf8(buf.to_vec()));
-		let mut data = self.data.borrow_mut();
-		data.headers.push( buf.to_vec() );
-		true
+		match request.request_body.as_mut()
+		{
+			Some(b) =>
+			{
+				let e = b.read(buf);
+				if let Ok(e) = e
+					{ e as size_t }
+				else
+					{ sys::CURL_READFUNC_ABORT }
+			},
+			None =>
+				0,
+		}
 	}
 }
+
+extern "C" fn header_callback(
+	bytes: *mut c_char,
+	size: size_t,
+	nmemb: size_t,
+	data: *mut c_void
+) -> size_t
+{
+	unsafe
+	{
+		let buf = std::slice::from_raw_parts(bytes as *const u8, size*nmemb);
+		let response = data as *mut ResponseData;
+		let response = &mut *response;
+
+		let colon = buf.iter().enumerate()
+			.find_map(|(idx,&b)| if b == b':' { Some(idx) } else { None });
+		if colon.is_none() { return size*nmemb; }
+		let colon = colon.unwrap();
+
+		let name = &buf[0 .. colon];
+		let mut value = &buf[colon+1 .. ];
+		while value.starts_with(&b" "[..]) { value = &value[ 1 ..]; }
+		if value.ends_with(&b"\n"[..]) { value = &value[ 0 .. value.len()-1]; }
+		if value.ends_with(&b"\r"[..]) { value = &value[ 0 .. value.len()-1]; }
+
+		let name = HeaderName::from_bytes(name);
+		if name.is_err() { return 0; }
+
+		let value = HeaderValue::from_bytes(value);
+		if value.is_err() { return 0; }
+
+		response.headers.append(name.unwrap(), value.unwrap());
+	}
+	size*nmemb
+}
+
+fn cr(rc: sys::CURLcode) -> std::io::Result<()>
+{
+	if rc == sys::CURLE_OK { return Ok(()); }
+	Err(std::io::Error::new(std::io::ErrorKind::Other, format!("curl: {}",rc)))
+}
+
+fn crm(rc: sys::CURLMcode) -> std::io::Result<()>
+{
+	if rc == sys::CURLM_OK { return Ok(()); }
+	Err(std::io::Error::new(std::io::ErrorKind::Other, format!("curl: {}",rc)))
+}
+

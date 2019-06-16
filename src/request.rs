@@ -1,4 +1,5 @@
 
+use crate::*;
 use crate::client::*;
 use crate::method::*;
 use crate::response::*;
@@ -8,10 +9,10 @@ pub struct Request
 {
 	pub(crate) method: Method,
 	pub(crate) url: Url,
-	//request_body: Body,
-	pub(crate) headers: curl::easy::List,
+	pub(crate) headers: *mut sys::curl_slist,
 	pub(crate) content_length: Option<u64>,
 	pub(crate) redirect_limit: Option<usize>,
+	pub(crate) request_body: Option<Box<dyn std::io::Read>>
 }
 
 impl Request
@@ -23,19 +24,14 @@ impl Request
 			method,
 			url,
 			//request_body: vec![].into(),
-			headers: curl::easy::List::new(),
+			headers: std::ptr::null_mut(),
 			content_length: None,
 			redirect_limit: Some(10),
+			request_body: None,
 		}
 	}
 
-	pub fn method(&mut self, m: Method) -> &mut Self
-	{
-		self.method = m;
-		self
-	}
-
-	pub fn content_length(&mut self, l: u64) -> &mut Self
+	pub fn content_length(mut self, l: u64) -> Self
 	{
 		self.content_length = Some(l);
 		self
@@ -47,9 +43,30 @@ impl Request
 		self
 	}*/
 
-	pub fn header(&mut self, k: String, v: String) -> &mut Self
+	pub fn header<K,V>(self, k: K, v: V) -> Self
+		where K: AsRef<[u8]>, V: AsRef<[u8]>
 	{
-		let _ = self.headers.append(&format!("{}: {}", k, v));
+		let k = k.as_ref();
+		let v = v.as_ref();
+		let mut h: Vec<u8> = Vec::with_capacity(k.len() + 2 + v.len() + 1);
+		h.extend_from_slice(k);
+		h.extend_from_slice(b": ");
+		h.extend_from_slice(v);
+		h.push(b'\0');
+
+		unsafe
+		{
+			sys::curl_slist_append(self.headers, h.as_ptr() as *const i8);
+		}
+
+		self
+	}
+
+	pub fn body<R>(mut self, r: R) -> Self
+		where R: std::io::Read + 'static
+	{
+		let r = Box::new(r);
+		self.request_body = Some(r);
 		self
 	}
 
@@ -74,3 +91,13 @@ impl Request
 	}
 }
 
+impl Drop for Request
+{
+	fn drop(&mut self)
+	{
+		unsafe
+		{
+			sys::curl_slist_free_all(self.headers);
+		}
+	}
+}

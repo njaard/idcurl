@@ -6,5 +6,7 @@ pub enum Method
 	PUT,
 	DELETE,
 	HEAD,
+	OPTIONS,
+	TRACE,
 }
 
