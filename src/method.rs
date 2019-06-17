@@ -1,6 +1,6 @@
 
 /// Specify the HTTP method to use
-#[derive(Debug)]
+#[derive(Debug,Copy,Clone)]
 pub enum Method
 {
 	GET,

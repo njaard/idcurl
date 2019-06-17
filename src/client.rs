@@ -55,7 +55,7 @@ impl Client
 
 		sys::curl_easy_reset(easy);
 
-		let url = std::ffi::CString::new(request.url.as_str())
+		let url = std::ffi::CString::new(request.url.as_ref().unwrap().as_str())
 			.expect("making string");
 
 		cr(sys::curl_easy_setopt(easy, curl_sys::CURLOPT_URL, url.as_ptr()))?;
@@ -85,7 +85,7 @@ impl Client
 		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_CUSTOMREQUEST, m.0.as_ptr()))?;
 
 
-		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_HTTPHEADER, request.headers))?;
+		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_HTTPHEADER, request.headers.as_ref().unwrap().headers))?;
 
 		if let Some(ref l) = request.content_length
 		{

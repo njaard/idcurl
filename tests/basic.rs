@@ -17,3 +17,25 @@ fn remote_address()
 	let nc = v.chars().filter(|&c| c == ':').count();
 	assert!((nd == 3 && nc==0) || (nd == 0 && nc>=6));
 }
+
+#[test]
+fn test_ownership()
+{
+	let _ = give_body();
+	let v = vec!();
+	let _ = take_body(&v);
+}
+
+fn give_body() -> idcurl::Request<'static>
+{
+	let v = vec!();
+	idcurl::Request::post(url::Url::parse("http://example.com/").unwrap())
+		.body(std::io::Cursor::new(v))
+}
+
+fn take_body<'a>(v: &'a Vec<u8>) -> idcurl::Request<'a>
+{
+	idcurl::Request::post(url::Url::parse("http://example.com/").unwrap())
+		.body(std::io::Cursor::new(v))
+}
+

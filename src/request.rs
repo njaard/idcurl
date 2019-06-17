@@ -7,29 +7,46 @@ use url::Url;
 /// Represent an unsent query.
 ///
 /// Calling `send` actually makes the request.
-pub struct Request
+pub struct Request<'body>
 {
 	pub(crate) method: Method,
-	pub(crate) url: Url,
-	pub(crate) headers: *mut sys::curl_slist,
+	pub(crate) url: Option<Url>,
+	pub(crate) headers: Option<CurlList>,
 	pub(crate) content_length: Option<u64>,
 	pub(crate) redirect_limit: Option<usize>,
-	pub(crate) request_body: Option<Box<dyn std::io::Read>>
+	pub(crate) request_body: Option<Box<dyn std::io::Read + 'body>>
 }
 
-impl Request
+
+pub(crate) struct CurlList
+{
+	pub(crate) headers: *mut sys::curl_slist,
+}
+
+impl Drop for CurlList
+{
+	fn drop(&mut self)
+	{
+		unsafe
+		{
+			sys::curl_slist_free_all(self.headers);
+		}
+	}
+}
+
+impl<'body> Request<'body>
 {
 	/// Create a request for a specific HTTP method and Url
 	///
 	///
-	pub fn new(method: Method, url: Url) -> Self
+	pub fn new(method: Method, url: Url) -> Request<'body>
 	{
-		Self
+		Request
 		{
 			method,
-			url,
+			url: Some(url),
 			//request_body: vec![].into(),
-			headers: std::ptr::null_mut(),
+			headers: Some( CurlList{ headers: std::ptr::null_mut() } ),
 			content_length: None,
 			redirect_limit: Some(10),
 			request_body: None,
@@ -107,7 +124,7 @@ impl Request
 
 		unsafe
 		{
-			sys::curl_slist_append(self.headers, h.as_ptr() as *const i8);
+			sys::curl_slist_append(self.headers.as_ref().unwrap().headers, h.as_ptr() as *const i8);
 		}
 	}
 
@@ -124,19 +141,50 @@ impl Request
 	/// The entire body is read before [`send()`](#method.send) completes.
 	///
 	/// The body is not read for the GET and DELETE methods.
-	pub fn set_body<R>(&mut self, r: R)
-		where R: std::io::Read + 'static
+	///
+	/// The specified body, if a reference, must outlive this `Request`.
+	pub fn set_body<R: 'body>(&mut self, r: R)
+		where R: std::io::Read + 'body
 	{
-		let r = Box::new(r);
-		self.request_body = Some(r);
+		self.request_body = Some(Box::new(r));
 	}
 
-	pub fn body<R>(mut self, r: R)
-		-> Self
-		where R: std::io::Read + 'static
+	/// Sets the reader which the payload to send is read from
+	///
+	/// The entire body is read before [`send()`](#method.send) completes.
+	///
+	/// The body is not read for the GET and DELETE methods.
+	///
+	/// The returned `Request` has the lifetime of your Read, because
+	/// the body you intend to send needs to outlive the Request. You
+	/// can either give a reference with a reader (example:
+	/// `Cursor::new(&my_vector_object)`) or you can give ownership
+	/// (`Cursor::new(owned_vector)`).
+	pub fn body<'b, R: 'b>(self, r: R)
+		-> Request<'b>
+		where R: std::io::Read + 'b
 	{
-		self.set_body(r);
-		self
+		let request_body = Some(Box::new(r) as Box<std::io::Read>);
+
+		let Request
+			{
+				method,
+				url,
+				headers,
+				content_length,
+				redirect_limit,
+				..
+			} = self;
+
+		Request
+		{
+			method: method,
+			url: url,
+			headers: headers,
+			content_length: content_length,
+			redirect_limit: redirect_limit,
+			request_body,
+		}
 	}
 
 	/// Make the HTTP request.
@@ -183,16 +231,5 @@ impl Request
 	{
 		self.set_redirect_limit(n);
 		self
-	}
-}
-
-impl Drop for Request
-{
-	fn drop(&mut self)
-	{
-		unsafe
-		{
-			sys::curl_slist_free_all(self.headers);
-		}
 	}
 }

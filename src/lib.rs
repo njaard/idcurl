@@ -73,7 +73,7 @@ pub fn get<U: TryIntoUrl>(url: U)
 /// Sends an http POST request to the given URL.
 ///
 /// The payload to send is read from `r`, which can be easily made
-/// with std::io::Cursor in case you're using a slice as a source.
+/// with `std::io::Cursor` in case you're using a slice as a source.
 ///
 /// ```
 /// let data = b"something to send";
@@ -82,7 +82,28 @@ pub fn get<U: TryIntoUrl>(url: U)
 ///     .copy_to(&mut std::io::stdout())
 ///     .unwrap();
 /// ```
-pub fn post<U: TryIntoUrl, R: std::io::Read+'static>(url: U, r: R)
+pub fn post<'b, U: TryIntoUrl, R: std::io::Read+'b>(url: U, r: R)
+	-> Result<Response>
+{
+	let url = U::try_into_url(url)?;
+	Request::post(url)
+		.body(r)
+		.send()
+}
+
+/// Sends an http PUT request to the given URL.
+///
+/// The payload to send is read from `r`, which can be easily made
+/// with `std::io::Cursor` in case you're using a slice as a source.
+///
+/// ```
+/// let data = b"something to send";
+/// idcurl::put("http://example.com", std::io::Cursor::new(data))
+///     .unwrap()
+///     .copy_to(&mut std::io::stdout())
+///     .unwrap();
+/// ```
+pub fn put<'b, U: TryIntoUrl, R: std::io::Read+'b>(url: U, r: R)
 	-> Result<Response>
 {
 	let url = U::try_into_url(url)?;
