@@ -27,7 +27,7 @@ You can also configure your request:
 		url::Url::parse("http://example.com").unwrap()
 	)
 		.header("Content-Type", "application/json")
-		.body(std::io::Cursor::new(body)
+		.body(std::io::Cursor::new(body))
 		.send()
 		.expect("http request");
 	assert!(response.status().is_success());
