@@ -29,6 +29,11 @@ impl ResponseData
 	}
 }
 
+/// Represents the result of an HTTP request
+///
+/// This object implements `Read`, which means
+/// you can read it in a streaming fashion or
+/// use the accessors to read it into memory.
 pub struct Response
 {
 	pub(crate) client: Client,
@@ -40,33 +45,54 @@ pub struct Response
 
 impl Response
 {
+	/// Returns the HTTP status code.
+	///
+	/// `is_success()` is the most convenient way to
+	/// make sure the message was received.
 	pub fn status(&self) -> StatusCode
 	{
 		self.rd.status_code
 	}
 
+	/// Gets the Content-Length of the returned body.
+	///
+	/// If the server reported the length of the returned body,
+	/// then this returns it, and None if the server didn't
+	/// specify. This value is available before the body
+	/// is read with [`data()`](#method.data) or [`text_as_utf8()`](#method.text_as_utf8)
+	///
+	/// It may also be a lie.
 	pub fn content_length(&self) -> Option<u64>
 	{
 		self.header(CONTENT_LENGTH)
 			.map(|v| v.to_str().ok()?.parse().ok())?
 	}
 
+	/// Read the entire document and interpret it as UTF-8.
+	///
+	/// Read the entire message body and
 	pub fn text_as_utf8(&mut self) -> std::io::Result<String>
 	{
 		Ok(String::from_utf8(self.data()?).unwrap())
 	}
 
+	/// Copies this Read object into another Write object
+	///
+	/// Returns the number of bytes read or an Error
+	/// if the request failed at some point.
 	pub fn copy_to<W: std::io::Write+?Sized>(&mut self, w: &mut W)
 		-> std::io::Result<u64>
 	{
 		std::io::copy(self, w)
 	}
 
+	/// Gets a specific HTTP header by name
 	pub fn header<K: AsHeaderName>(&self, k: K) -> Option<&HeaderValue>
 	{
 		self.headers().get(k)
 	}
 
+	/// Reads all data into a vector, emptying this Response
 	pub fn data(&mut self)
 		-> std::io::Result<Vec<u8>>
 	{
@@ -75,6 +101,7 @@ impl Response
 		Ok(d)
 	}
 
+	/// Gets a multimap of all HTTP headers received
 	pub fn headers(&self) -> &HeaderMap
 	{
 		&self.rd.headers

@@ -1,28 +1,75 @@
-use url::Url;
+//! An idiomatic synchronous Rust library for making HTTP requests.
+//!
+//! It's implemented in terms of curl.
+//!
+//! # Example
+//!
+//! ```
+//! let mut output = vec!();
+//! idcurl::get("http://example.com")
+//!     .expect("error making request")
+//!     .copy_to(&mut output)
+//!     .unwrap();
+//! ```
 
 mod client;
 mod request;
 mod response;
 mod method;
+mod into_url;
+
 pub mod header
 {
 	pub use http::header::*;
 }
 
-use request::*;
-use response::*;
-use method::*;
+pub use into_url::*;
+pub use request::*;
+pub use response::*;
+pub use method::*;
 
 use std::sync::{Once, ONCE_INIT};
 
-pub fn get(url: Url) -> Request
+/// Make a basic http GET request to the given URL
+///
+/// Returns an error if the url couldn't be parsed
+/// or the request couldn't be made.
+///
+/// The response is ready for reading as an `std::io::Read`,
+/// which you may want to convert to a `std::io::BufRead`.
+///
+/// ```
+/// let mut response = idcurl::get("http://example.com")
+///     .expect("failed to make HTTP request");
+/// assert!(response.status().is_success());
+/// response.copy_to(&mut std::io::stdout()).unwrap();
+/// ```
+pub fn get<U: TryIntoUrl>(url: U) -> std::io::Result<Response>
 {
-	Request::new(method::Method::GET, url)
+	let url = U::try_into_url(url)?;
+	Request::get(url)
+		.send()
 }
 
-pub fn post(url: Url) -> Request
+/// Sends an http POST request to the given URL.
+///
+/// The payload to send is read from `r`, which can be easily made
+/// with std::io::Cursor in case you're using a slice as a source.
+///
+/// ```
+/// let data = b"something to send";
+/// idcurl::post("http://example.com", std::io::Cursor::new(data))
+///     .unwrap()
+///     .copy_to(&mut std::io::stdout())
+///     .unwrap();
+/// ```
+pub fn post<U: TryIntoUrl, R: std::io::Read+'static>(url: U, r: R)
+	-> std::io::Result<Response>
 {
-	Request::new(method::Method::POST, url)
+	let url = U::try_into_url(url)?;
+	Request::post(url)
+		.body(r)
+		.send()
 }
 
 use curl_sys as sys;

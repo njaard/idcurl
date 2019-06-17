@@ -1,4 +1,6 @@
 
+/// Specify the HTTP method to use
+#[derive(Debug)]
 pub enum Method
 {
 	GET,

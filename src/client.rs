@@ -10,6 +10,8 @@ pub(crate) struct Client
 //	data: Rc<RefCell<TranceiverData>>,
 }
 
+/// eventually will let one reuse the same
+/// connection
 impl Client
 {
 	pub(crate) fn new() -> Client
