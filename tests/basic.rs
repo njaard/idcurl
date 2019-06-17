@@ -15,5 +15,5 @@ fn remote_address()
 	let v = e.remote_address().unwrap();
 	let nd = v.chars().filter(|&c| c == '.').count();
 	let nc = v.chars().filter(|&c| c == ':').count();
-	assert!((nd == 4 && nc==0) || (nd == 0 && nc>=6));
+	assert!((nd == 3 && nc==0) || (nd == 0 && nc>=6));
 }
