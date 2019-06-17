@@ -1,9 +1,12 @@
 [package]
 name = "idcurl"
 version = "0.1.0"
-authors = ["Kalle Samuels <charles@derkarl.org>"]
+authors = ["Kalle Samuels <ks@ks.ax>"]
 edition = "2018"
-description = "Idiomatic http client over curl"
+description = "Sychronous idiomatic http client based on curl"
+keywords = ["http", "client", "curl", "sync"]
+documentation = "https://docs.rs/idcurl/"
+
 
 [dependencies]
 curl-sys={version="0.4" }

@@ -3,6 +3,7 @@ use std::error::Error as StdError;
 use crate::*;
 use url::Url;
 
+/// Specifies the type of error
 #[derive(Debug)]
 pub enum Kind
 {

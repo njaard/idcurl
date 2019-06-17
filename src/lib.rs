@@ -4,12 +4,27 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```rust
 //! let mut output = vec!();
 //! idcurl::get("http://example.com")
 //!     .expect("error making request")
 //!     .copy_to(&mut output)
 //!     .unwrap();
+//! ```
+//!
+//! ```rust
+//! let body = r#"{ "hello": "world" }"#;
+//!
+//! let mut response = idcurl::Request::post(
+//!     url::Url::parse("http://example.com").unwrap()
+//! )
+//!     .header("Content-Type", "application/json")
+//!     .body(std::io::Cursor::new(body))
+//!     .send()
+//!     .expect("http request");
+//! assert!(response.status().is_success());
+//! std::io::copy(&mut response, &mut std::io::stdout())
+//!     .expect("reading response");
 //! ```
 
 mod client;
