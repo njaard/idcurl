@@ -6,7 +6,7 @@ use crate::header::*;
 pub(crate) struct Client
 {
 	multi: *mut sys::CURLM,
-	easy: *mut sys::CURL,
+	pub(crate) easy: *mut sys::CURL,
 //	data: Rc<RefCell<TranceiverData>>,
 }
 
@@ -38,7 +38,7 @@ impl Client
 	}
 
 	pub(crate) fn execute(self, request: Request)
-		-> std::io::Result<Response>
+		-> Result<Response>
 	{
 		unsafe
 		{
@@ -48,14 +48,15 @@ impl Client
 	}
 
 	unsafe fn execute2(mut self, mut request: Request)
-		-> std::io::Result<Response>
+		-> Result<Response>
 	{
 		let mut rd = Box::new(ResponseData::new());
 		let easy = self.easy;
 
 		sys::curl_easy_reset(easy);
 
-		let url = std::ffi::CString::new(request.url.as_str())?;
+		let url = std::ffi::CString::new(request.url.as_str())
+			.expect("making string");
 		sys::curl_easy_setopt(easy, sys::CURLOPT_URL);
 		cr(sys::curl_easy_setopt(easy, curl_sys::CURLOPT_URL, url.as_ptr()))?;
 
@@ -152,7 +153,13 @@ impl Client
 				&mut status as *mut _
 			))?;
 			rd.status_code = StatusCode::from_u16(status as u16)
-				.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+				.map_err(
+					|e|
+						Error::new(
+							Kind::Curl(format!("invalid status code: {}", e)),
+							None
+						)
+				)?;
 		}
 
 		let response = Response
@@ -164,7 +171,7 @@ impl Client
 		Ok(response)
 	}
 
-	pub(crate) fn wait_and_process(&mut self) -> std::io::Result<bool>
+	pub(crate) fn wait_and_process(&mut self) -> Result<bool>
 	{
 		unsafe
 		{
@@ -286,15 +293,18 @@ extern "C" fn header_callback(
 	size*nmemb
 }
 
-fn cr(rc: sys::CURLcode) -> std::io::Result<()>
+pub(crate) fn cr(rc: sys::CURLcode) -> Result<()>
 {
 	if rc == sys::CURLE_OK { return Ok(()); }
-	Err(std::io::Error::new(std::io::ErrorKind::Other, format!("curl: {}",rc)))
+
+	let kind = kind_from_curl(rc);
+	Err(Error::new(kind, None))
 }
 
-fn crm(rc: sys::CURLMcode) -> std::io::Result<()>
+fn crm(rc: sys::CURLMcode) -> Result<()>
 {
 	if rc == sys::CURLM_OK { return Ok(()); }
-	Err(std::io::Error::new(std::io::ErrorKind::Other, format!("curl: {}",rc)))
+	let kind = kind_from_curl(rc as sys::CURLcode);
+	Err(Error::new(kind, None))
 }
 

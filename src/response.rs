@@ -70,10 +70,17 @@ impl Response
 
 	/// Read the entire document and interpret it as UTF-8.
 	///
-	/// Read the entire message body and
+	/// Read the entire message body into memory.
 	pub fn text_as_utf8(&mut self) -> std::io::Result<String>
 	{
-		Ok(String::from_utf8(self.data()?).unwrap())
+		String::from_utf8(self.data()?)
+			.map_err(
+				|e|
+					std::io::Error::new(
+						std::io::ErrorKind::InvalidData,
+						Error::new(Kind::NotUtf8(e), None)
+					)
+			)
 	}
 
 	/// Copies this Read object into another Write object
@@ -106,6 +113,23 @@ impl Response
 	{
 		&self.rd.headers
 	}
+
+	/// The remote ip address for this connection
+	pub fn remote_address(&self) -> Result<&str>
+	{
+		unsafe
+		{
+			let p = std::ptr::null_mut();
+
+			crate::client::cr(sys::curl_easy_getinfo(
+				self.client.easy,
+				sys::CURLINFO_PRIMARY_IP,
+				&p
+			))?;
+			std::str::from_utf8(std::ffi::CStr::from_ptr(p).to_bytes())
+				.map_err(|e| Error::new(Kind::Curl(format!("utf-8 decoding: {}",e)), None))
+		}
+	}
 }
 
 
@@ -121,7 +145,8 @@ impl std::io::Read for Response
 		{
 			if self.rd.read_queue.len() == 0 && !self.rd.transfer_done
 			{
-				self.rd.transfer_done = self.client.wait_and_process()?;
+				self.rd.transfer_done = self.client.wait_and_process()
+					.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 			}
 			if self.rd.read_queue.len() == 0 && self.rd.transfer_done
 			{

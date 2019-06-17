@@ -151,7 +151,7 @@ impl Request
 	///
 	/// You should then call [`Response::status().is_success()`](status.html#method.is_success)
 	/// to check for an HTTP status code in the 200 range.
-	pub fn send(self) -> std::io::Result<Response>
+	pub fn send(self) -> Result<Response>
 	{
 		Client::new()
 			.execute(self)

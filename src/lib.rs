@@ -17,17 +17,20 @@ mod request;
 mod response;
 mod method;
 mod into_url;
+mod error;
 
 pub mod header
 {
 	pub use http::header::*;
 }
 
+pub use error::*;
 pub use into_url::*;
 pub use request::*;
 pub use response::*;
 pub use method::*;
 
+pub type Result<T> = std::result::Result<T, Error>;
 use std::sync::{Once, ONCE_INIT};
 
 /// Make a basic http GET request to the given URL
@@ -44,7 +47,8 @@ use std::sync::{Once, ONCE_INIT};
 /// assert!(response.status().is_success());
 /// response.copy_to(&mut std::io::stdout()).unwrap();
 /// ```
-pub fn get<U: TryIntoUrl>(url: U) -> std::io::Result<Response>
+pub fn get<U: TryIntoUrl>(url: U)
+	-> Result<Response>
 {
 	let url = U::try_into_url(url)?;
 	Request::get(url)
@@ -64,7 +68,7 @@ pub fn get<U: TryIntoUrl>(url: U) -> std::io::Result<Response>
 ///     .unwrap();
 /// ```
 pub fn post<U: TryIntoUrl, R: std::io::Read+'static>(url: U, r: R)
-	-> std::io::Result<Response>
+	-> Result<Response>
 {
 	let url = U::try_into_url(url)?;
 	Request::post(url)
