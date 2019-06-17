@@ -3,10 +3,12 @@ name = "idcurl"
 version = "0.1.0"
 authors = ["Kalle Samuels <ks@ks.ax>"]
 edition = "2018"
-description = "Sychronous idiomatic http client based on curl"
+description = "Idiomatic synchronous http client based on curl"
 keywords = ["http", "client", "curl", "sync"]
 documentation = "https://docs.rs/idcurl/"
-
+license = "BSD-2-Clause"
+readme = "README.md"
+repository = "https://github.com/njaard/idcurl"
 
 [dependencies]
 curl-sys={version="0.4" }
