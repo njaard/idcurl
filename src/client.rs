@@ -57,7 +57,7 @@ impl Client
 
 		let url = std::ffi::CString::new(request.url.as_str())
 			.expect("making string");
-		sys::curl_easy_setopt(easy, sys::CURLOPT_URL);
+
 		cr(sys::curl_easy_setopt(easy, curl_sys::CURLOPT_URL, url.as_ptr()))?;
 
 		if let Some(n) = request.redirect_limit
