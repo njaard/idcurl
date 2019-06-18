@@ -124,7 +124,9 @@ impl<'body> Request<'body>
 
 		unsafe
 		{
-			sys::curl_slist_append(self.headers.as_ref().unwrap().headers, h.as_ptr() as *const i8);
+			let l = sys::curl_slist_append(self.headers.as_ref().unwrap().headers, h.as_ptr() as *const i8);
+			assert!(!l.is_null());
+			self.headers.as_mut().unwrap().headers = l;
 		}
 	}
 
