@@ -188,6 +188,20 @@ impl Client
 				self.multi,
 				&mut n_handles as *mut _,
 			))?;
+
+			let mut msgs_left = 0;
+			loop
+			{
+				let m = sys::curl_multi_info_read(self.multi, &mut msgs_left);
+				if m.is_null() { break; }
+				if (*m).msg == sys::CURLMSG_DONE
+				{
+					let c = (*m).data as sys::CURLcode;
+
+					cr(c)?;
+				}
+			}
+
 			Ok(n_handles == 0)
 		}
 	}

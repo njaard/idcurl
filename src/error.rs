@@ -67,6 +67,11 @@ impl Error
 			url,
 		}
 	}
+
+	pub fn kind(&self) -> &Kind
+	{
+		&self.kind
+	}
 }
 impl std::fmt::Display for Error
 {

@@ -132,7 +132,13 @@ impl Response
 	}
 }
 
-
+impl std::fmt::Debug for Response
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result
+	{
+		f.write_fmt(format_args!("Response {{code={}}}", self.status()))
+	}
+}
 
 
 impl std::io::Read for Response

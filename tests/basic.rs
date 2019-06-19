@@ -19,6 +19,17 @@ fn remote_address()
 }
 
 #[test]
+fn bad_connection()
+{
+	let e = idcurl::get("http://localhost:1/").unwrap_err();
+	match e.kind()
+	{
+		idcurl::Kind::Connect => { },
+		a => panic!("{:?}", a),
+	}
+}
+
+#[test]
 fn test_ownership()
 {
 	let _ = give_body();
