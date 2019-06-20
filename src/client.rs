@@ -87,14 +87,6 @@ impl Client
 
 		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_HTTPHEADER, request.headers.as_ref().unwrap().headers))?;
 
-		if let Some(ref l) = request.content_length
-		{
-			cr(sys::curl_easy_setopt(
-				easy, sys::CURLOPT_POSTFIELDSIZE_LARGE,
-				*l as sys::curl_off_t,
-			))?;
-		}
-
 		{
 			let rd = &mut request as &mut Request as *mut Request;
 			cr(sys::curl_easy_setopt(

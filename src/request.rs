@@ -12,7 +12,6 @@ pub struct Request<'body>
 	pub(crate) method: Method,
 	pub(crate) url: Option<Url>,
 	pub(crate) headers: Option<CurlList>,
-	pub(crate) content_length: Option<u64>,
 	pub(crate) redirect_limit: Option<usize>,
 	pub(crate) request_body: Option<Box<dyn std::io::Read + 'body>>
 }
@@ -47,7 +46,6 @@ impl<'body> Request<'body>
 			url: Some(url),
 			//request_body: vec![].into(),
 			headers: Some( CurlList{ headers: std::ptr::null_mut() } ),
-			content_length: None,
 			redirect_limit: Some(10),
 			request_body: None,
 		}
@@ -84,21 +82,28 @@ impl<'body> Request<'body>
 
 	/// set the HTTP Content-Length header
 	///
+	/// This is the number of bytes expected to be read by [`body()`](#method.body).
+	///
 	/// If specified, the value is sent as the `Content-Length`
 	/// header.
 	///
-	/// It's undefined what happens if you set this incorrectly.
+	/// It does not matter to curl if you specify the wrong value,
+	/// but the server may object.
 	pub fn set_content_length(&mut self, l: u64)
 	{
-		self.content_length = Some(l);
+		self.set_header(crate::header::CONTENT_LENGTH, format!("{}",l));
 	}
 
 	/// set the HTTP Content-Length header
 	///
-	/// If specified, the value is sent as the `Content-Length`
-	/// header.
+	/// This is the number of bytes expected to be read by [`body()`](#method.body).
 	///
-	/// It's undefined what happens if you set this incorrectly.
+	/// If specified, the value is sent as the `Content-Length`
+	/// header. Either way, curl will use
+	/// `Transfer-Encoding: chunked`.
+	///
+	/// It does not matter to curl if you specify the wrong value,
+	/// but the server may object.
 	pub fn content_length(mut self, l: u64) -> Self
 	{
 		self.set_content_length(l);
@@ -173,7 +178,6 @@ impl<'body> Request<'body>
 				method,
 				url,
 				headers,
-				content_length,
 				redirect_limit,
 				..
 			} = self;
@@ -183,7 +187,6 @@ impl<'body> Request<'body>
 			method: method,
 			url: url,
 			headers: headers,
-			content_length: content_length,
 			redirect_limit: redirect_limit,
 			request_body,
 		}
