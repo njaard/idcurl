@@ -46,7 +46,7 @@ pub use response::*;
 pub use method::*;
 
 pub type Result<T> = std::result::Result<T, Error>;
-use std::sync::{Once, ONCE_INIT};
+use std::sync::{Once};
 
 /// Make a basic http GET request to the given URL
 ///
@@ -122,7 +122,7 @@ pub use http::status::*;
 /// recommended to do so as soon as the program starts.
 pub fn init()
 {
-	static INIT: Once = ONCE_INIT;
+	static INIT: Once = Once::new();
 	INIT.call_once(||
 	{
 		platform_init();
