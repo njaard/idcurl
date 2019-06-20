@@ -107,7 +107,7 @@ pub fn put<'b, U: TryIntoUrl, R: std::io::Read+'b>(url: U, r: R)
 	-> Result<Response>
 {
 	let url = U::try_into_url(url)?;
-	Request::post(url)
+	Request::put(url)
 		.body(r)
 		.send()
 }
