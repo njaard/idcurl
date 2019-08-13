@@ -16,7 +16,7 @@
 //! let body = r#"{ "hello": "world" }"#;
 //!
 //! let mut response = idcurl::Request::post(
-//!     url::Url::parse("http://example.com").unwrap()
+//!     "http://example.com".to_string()
 //! )
 //!     .header("Content-Type", "application/json")
 //!     .body(std::io::Cursor::new(body))
@@ -31,7 +31,6 @@ mod client;
 mod request;
 mod response;
 mod method;
-mod into_url;
 mod error;
 
 pub mod header
@@ -40,7 +39,6 @@ pub mod header
 }
 
 pub use error::*;
-pub use into_url::*;
 pub use request::*;
 pub use response::*;
 pub use method::*;
@@ -62,11 +60,10 @@ use std::sync::{Once};
 /// assert!(response.status().is_success());
 /// response.copy_to(&mut std::io::stdout()).unwrap();
 /// ```
-pub fn get<U: TryIntoUrl>(url: U)
+pub fn get(url: &str)
 	-> Result<Response>
 {
-	let url = U::try_into_url(url)?;
-	Request::get(url)
+	Request::get(url.to_owned())
 		.send()
 }
 
@@ -82,11 +79,10 @@ pub fn get<U: TryIntoUrl>(url: U)
 ///     .copy_to(&mut std::io::stdout())
 ///     .unwrap();
 /// ```
-pub fn post<'b, U: TryIntoUrl, R: std::io::Read+'b>(url: U, r: R)
+pub fn post<'b, R: std::io::Read+'b>(url: &str, r: R)
 	-> Result<Response>
 {
-	let url = U::try_into_url(url)?;
-	Request::post(url)
+	Request::post(url.to_owned())
 		.body(r)
 		.send()
 }
@@ -103,11 +99,10 @@ pub fn post<'b, U: TryIntoUrl, R: std::io::Read+'b>(url: U, r: R)
 ///     .copy_to(&mut std::io::stdout())
 ///     .unwrap();
 /// ```
-pub fn put<'b, U: TryIntoUrl, R: std::io::Read+'b>(url: U, r: R)
+pub fn put<'b, R: std::io::Read+'b>(url: &str, r: R)
 	-> Result<Response>
 {
-	let url = U::try_into_url(url)?;
-	Request::put(url)
+	Request::put(url.to_owned())
 		.body(r)
 		.send()
 }

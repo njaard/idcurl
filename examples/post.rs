@@ -3,7 +3,6 @@ fn main()
 {
 	let url = std::env::args().nth(1)
 		.expect("url expected as parameter");
-	let url = url::Url::parse(&url).expect("parsing url");
 	let mut e = idcurl::Request::post(
 		url
 	)

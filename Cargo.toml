@@ -12,6 +12,5 @@ repository = "https://github.com/njaard/idcurl"
 
 [dependencies]
 curl-sys={version="0.4" }
-url="1.7"
 http="0.1"
 libc="0.2.42"

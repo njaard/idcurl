@@ -2,7 +2,6 @@ use crate::*;
 use crate::client::*;
 use crate::method::*;
 use crate::response::*;
-use url::Url;
 
 /// Represent an unsent query.
 ///
@@ -10,7 +9,7 @@ use url::Url;
 pub struct Request<'body>
 {
 	pub(crate) method: Method,
-	pub(crate) url: Option<Url>,
+	pub(crate) url: Option<String>,
 	pub(crate) headers: Option<CurlList>,
 	pub(crate) redirect_limit: Option<usize>,
 	pub(crate) request_body: Option<Box<dyn std::io::Read + 'body>>
@@ -38,7 +37,7 @@ impl<'body> Request<'body>
 	/// Create a request for a specific HTTP method and Url
 	///
 	///
-	pub fn new(method: Method, url: Url) -> Request<'body>
+	pub fn new(method: Method, url: String) -> Request<'body>
 	{
 		Request
 		{
@@ -55,7 +54,7 @@ impl<'body> Request<'body>
 	///
 	/// You may then use the builder-pattern to configure the request
 	/// and then call [`send()`](#method.send) to begin it
-	pub fn get(url: Url) -> Self
+	pub fn get(url: String) -> Self
 	{
 		Self::new(Method::GET, url)
 	}
@@ -65,7 +64,7 @@ impl<'body> Request<'body>
 	/// You should specify a payload to send with [`body()`](#method.body)
 	/// or [`set_body()`](#method.set_body), which will be read
 	/// before the request turns into a Response.
-	pub fn post(url: Url) -> Self
+	pub fn post(url: String) -> Self
 	{
 		Self::new(Method::POST, url)
 	}
@@ -75,7 +74,7 @@ impl<'body> Request<'body>
 	/// You should specify a payload to send with [`body()`](#method.body)
 	/// or [`set_body()`](#method.set_body), which will be read
 	/// before the request turns into a Response.
-	pub fn put(url: Url) -> Self
+	pub fn put(url: String) -> Self
 	{
 		Self::new(Method::PUT, url)
 	}

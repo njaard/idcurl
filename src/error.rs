@@ -1,7 +1,6 @@
 use std::error::Error as StdError;
 
 use crate::*;
-use url::Url;
 
 /// Specifies the type of error
 #[derive(Debug)]
@@ -37,8 +36,6 @@ pub enum Kind
 	SslCertificate,
 	/// The remote server did not close via SSL
 	SslShutdownFailed,
-	/// failed to parse URL
-	UrlParse(url::ParseError),
 	/// unknown CURL error
 	Curl(String),
 	/// The expected was not the reported size
@@ -53,12 +50,12 @@ pub enum Kind
 pub struct Error
 {
 	kind: Kind,
-	url: Option<Url>,
+	url: Option<String>,
 }
 
 impl Error
 {
-	pub fn new(kind: Kind, url: Option<Url>)
+	pub fn new(kind: Kind, url: Option<String>)
 		-> Error
 	{
 		Error
@@ -107,7 +104,6 @@ impl StdError for Error
 			Kind::SslCipher => "The SSL cipher is invalid",
 			Kind::SslCertificate => "Remote server's SSL certificate is invalid",
 			Kind::SslShutdownFailed => "The remote server did not securely close its socket over SSL",
-			Kind::UrlParse(_) => "failed to parse URL",
 			Kind::Curl(a) => &a,
 			Kind::PartialFile => "The expected was not the reported size",
 			Kind::Timeout => "The specified timeout was exceeded",

@@ -30,6 +30,23 @@ fn bad_connection()
 }
 
 #[test]
+fn remote_disconnects()
+{
+	let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+	let port = listener.local_addr().unwrap().port();
+
+	let t = std::thread::spawn(
+		move ||
+		{
+			let _ = listener.accept().unwrap();
+		}
+	);
+	let e = idcurl::get(&format!("http://localhost:{}/", port));
+	assert!(e.is_err());
+	t.join().unwrap();
+}
+
+#[test]
 fn test_ownership()
 {
 	let _ = give_body();
@@ -40,13 +57,13 @@ fn test_ownership()
 fn give_body() -> idcurl::Request<'static>
 {
 	let v = vec!();
-	idcurl::Request::post(url::Url::parse("http://example.com/").unwrap())
+	idcurl::Request::post("http://example.com/".to_string())
 		.body(std::io::Cursor::new(v))
 }
 
 fn take_body<'a>(v: &'a Vec<u8>) -> idcurl::Request<'a>
 {
-	idcurl::Request::post(url::Url::parse("http://example.com/").unwrap())
+	idcurl::Request::post("http://example.com/".to_string())
 		.body(std::io::Cursor::new(v))
 }
 
