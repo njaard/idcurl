@@ -134,8 +134,8 @@ impl Client
 
 		loop
 		{
-			rd.transfer_done = self.wait_and_process()?;
-			if rd.headers_done || rd.transfer_done { break; }
+			let done = self.wait_and_process()?;
+			if done || rd.headers_done || rd.transfer_done { break; }
 		}
 		{
 			let mut status: libc::c_long = 0;
@@ -189,8 +189,8 @@ impl Client
 				if (*m).msg == sys::CURLMSG_DONE
 				{
 					let c = (*m).data as sys::CURLcode;
-
 					cr(c)?;
+					return Ok(true);
 				}
 			}
 
