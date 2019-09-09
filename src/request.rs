@@ -170,7 +170,7 @@ impl<'body> Request<'body>
 		-> Request<'b>
 		where R: std::io::Read + 'b
 	{
-		let request_body = Some(Box::new(r) as Box<std::io::Read>);
+		let request_body = Some(Box::new(r) as Box<dyn std::io::Read>);
 
 		let Request
 			{
