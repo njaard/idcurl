@@ -24,7 +24,7 @@ You can also configure your request:
 	let body = r#"{ "hello": "world" }"#;
 
 	let mut response = idcurl::Request::post(
-		url::Url::parse("http://example.com").unwrap()
+		"http://example.com".to_string()
 	)
 		.header("Content-Type", "application/json")
 		.body(std::io::Cursor::new(body))
