@@ -9,7 +9,7 @@ pub(crate) struct ResponseData
 {
 	pub(crate) read_queue: VecDeque<u8>,
 	pub(crate) headers_done: bool,
-	pub(crate) transfer_done: bool,
+	pub(crate) completed: bool,
 	pub(crate) headers: HeaderMap,
 	pub(crate) status_code: StatusCode,
 }
@@ -22,7 +22,7 @@ impl ResponseData
 		{
 			read_queue: VecDeque::new(),
 			headers_done: false,
-			transfer_done: false,
+			completed: false,
 			headers: HeaderMap::new(),
 			status_code: StatusCode::NOT_IMPLEMENTED,
 		}
@@ -149,12 +149,18 @@ impl std::io::Read for Response
 		let mut pos = 0;
 		while pos != buf.len()
 		{
-			if self.rd.read_queue.len() == 0 && !self.rd.transfer_done
+			if self.rd.read_queue.len() == 0 && !self.rd.completed
 			{
-				self.rd.transfer_done = self.client.wait_and_process()
-					.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+				let e = self.client.wait_and_process()
+					.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
+				if e.is_err()
+				{
+					self.rd.completed = true;
+					return Err(e.unwrap_err());
+				}
+				self.rd.completed = e.unwrap();
 			}
-			if self.rd.read_queue.len() == 0 && self.rd.transfer_done
+			if self.rd.read_queue.len() == 0 && self.rd.completed
 			{
 				break;
 			}

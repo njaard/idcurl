@@ -135,7 +135,11 @@ impl Client
 		loop
 		{
 			let done = self.wait_and_process()?;
-			if done || rd.headers_done || rd.transfer_done { break; }
+			if done || rd.headers_done || rd.completed
+			{
+				rd.completed = done;
+				break;
+			}
 		}
 		{
 			let mut status: libc::c_long = 0;
@@ -181,20 +185,23 @@ impl Client
 				&mut n_handles as *mut _,
 			))?;
 
-			let mut msgs_left = 0;
-			loop
+			if n_handles == 0
 			{
-				let m = sys::curl_multi_info_read(self.multi, &mut msgs_left);
-				if m.is_null() { break; }
-				if (*m).msg == sys::CURLMSG_DONE
+				let mut msgs_left = 0;
+				loop
 				{
-					let c = (*m).data as sys::CURLcode;
-					cr(c)?;
-					return Ok(true);
+					let m = sys::curl_multi_info_read(self.multi, &mut msgs_left);
+					if m.is_null() { break; }
+					if (*m).msg == sys::CURLMSG_DONE
+					{
+						let c = (*m).data as sys::CURLcode;
+						cr(c)?;
+						return Ok(true);
+					}
 				}
 			}
 
-			Ok(n_handles == 0)
+			Ok(false)
 		}
 	}
 }
@@ -230,7 +237,6 @@ extern "C" fn write_callback(
 		response.read_queue.reserve(buf.len());
 		for &c in buf
 			{ response.read_queue.push_back(c); }
-		if buf.len() == 0 { response.transfer_done = true; }
 	}
 	size*nmemb
 }
