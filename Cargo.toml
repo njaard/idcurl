@@ -1,6 +1,6 @@
 [package]
 name = "idcurl"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Kalle Samuels <ks@ks.ax>"]
 edition = "2018"
 description = "Idiomatic synchronous http client based on curl"
