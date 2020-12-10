@@ -79,7 +79,7 @@ impl std::fmt::Display for Error
 			std::fmt::Display::fmt(url, f)?;
 			f.write_str(": ")?;
 		}
-		std::fmt::Display::fmt(self.description(), f)
+		std::fmt::Display::fmt(self, f)
 	}
 }
 
