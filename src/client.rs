@@ -288,7 +288,10 @@ extern "C" fn header_callback(
 		if colon.is_none() { return size*nmemb; }
 		let colon = colon.unwrap();
 
-		let name = &buf[0 .. colon];
+		let mut name = &buf[0 .. colon];
+		while !name.is_empty() && name.last().unwrap().is_ascii_whitespace()
+			{ name = &name[ 0 .. name.len()-1]; }
+
 		let mut value = &buf[colon+1 .. ];
 		while value.starts_with(&b" "[..]) { value = &value[ 1 ..]; }
 		if value.ends_with(&b"\n"[..]) { value = &value[ 0 .. value.len()-1]; }
