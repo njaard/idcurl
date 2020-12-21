@@ -13,6 +13,13 @@ fn remote_address()
 }
 
 #[test]
+fn bad_address()
+{
+	let e = idcurl::get("http://___________/").unwrap_err();
+	eprintln!("{}", e);
+}
+
+#[test]
 fn bad_connection()
 {
 	let e = idcurl::get("http://localhost:1/").unwrap_err();

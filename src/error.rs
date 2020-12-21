@@ -79,38 +79,35 @@ impl std::fmt::Display for Error
 			std::fmt::Display::fmt(url, f)?;
 			f.write_str(": ")?;
 		}
-		std::fmt::Display::fmt(self, f)
+		let msg =
+			match &self.kind
+			{
+				Kind::ResolveProxy => "failure resolving proxy",
+				Kind::ResolveHost => "failure resolving host",
+				Kind::Connect => "failed connecting to host",
+				Kind::Http2 => "HTTP2 framing error",
+				Kind::BodyStreamFailure => "failure reading from the specified Body",
+				Kind::InterfaceFailure => "outgoing interface could not be used",
+				Kind::TooManyRedirects => "Redirect loop or too many redirects",
+				Kind::NothingFromServer => "The server sent nothing",
+				Kind::SendError => "Failed to send on socket",
+				Kind::RecvError => "Failed to receive from socket",
+				Kind::SslConnect => "failure performing SSL handshake",
+				Kind::SslLocalCertificate => "local client certificate problem",
+				Kind::SslCipher => "The SSL cipher is invalid",
+				Kind::SslCertificate => "Remote server's SSL certificate is invalid",
+				Kind::SslShutdownFailed => "The remote server did not securely close its socket over SSL",
+				Kind::Curl(a) => &a,
+				Kind::PartialFile => "The expected was not the reported size",
+				Kind::Timeout => "The specified timeout was exceeded",
+				Kind::NotUtf8(_) => "The contents were not UTF-8",
+			};
+		std::fmt::Display::fmt(msg, f)
 	}
 }
 
 impl StdError for Error
 {
-	fn description(&self) -> &str
-	{
-		match &self.kind
-		{
-			Kind::ResolveProxy => "failure resolving proxy",
-			Kind::ResolveHost => "failure resolving host",
-			Kind::Connect => "failed connecting to host",
-			Kind::Http2 => "HTTP2 framing error",
-			Kind::BodyStreamFailure => "failure reading from the specified Body",
-			Kind::InterfaceFailure => "outgoing interface could not be used",
-			Kind::TooManyRedirects => "Redirect loop or too many redirects",
-			Kind::NothingFromServer => "The server sent nothing",
-			Kind::SendError => "Failed to send on socket",
-			Kind::RecvError => "Failed to receive from socket",
-			Kind::SslConnect => "failure performing SSL handshake",
-			Kind::SslLocalCertificate => "local client certificate problem",
-			Kind::SslCipher => "The SSL cipher is invalid",
-			Kind::SslCertificate => "Remote server's SSL certificate is invalid",
-			Kind::SslShutdownFailed => "The remote server did not securely close its socket over SSL",
-			Kind::Curl(a) => &a,
-			Kind::PartialFile => "The expected was not the reported size",
-			Kind::Timeout => "The specified timeout was exceeded",
-			Kind::NotUtf8(_) => "The contents were not UTF-8",
-		}
-	}
-
 	fn source(&self) -> Option<&(dyn StdError + 'static)>
 	{
 		None
