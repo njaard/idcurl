@@ -211,6 +211,32 @@ fn some_data4()
 }
 
 #[test]
+fn head()
+{
+	let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+	let port = listener.local_addr().unwrap().port();
+
+	let _t = std::thread::spawn(
+		move ||
+		{
+			let q = listener.accept().unwrap();
+			let mut s = q.0;
+			s.write_all(
+				b"HTTP/1.1 200 OK\r\n\
+				Content-Length: 100\r\n\
+				\r\n\
+			").unwrap();
+		}
+	);
+	let e = idcurl::Request::new(
+		idcurl::Method::HEAD,
+		format!("http://localhost:{}/", port)
+	).send().unwrap();
+	assert_eq!(e.headers().get(idcurl::header::CONTENT_LENGTH).unwrap().to_str().unwrap(), "100");
+}
+
+
+#[test]
 fn test_ownership()
 {
 	let _ = give_body();

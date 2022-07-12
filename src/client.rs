@@ -66,21 +66,26 @@ impl Client
 			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_MAXREDIRS, n as c_ulong))?;
 		}
 
-		let m: (&[u8], bool);
+		let m: (&[u8], bool, bool);
 		match request.method
 		{
-			Method::GET => m=(b"GET\0", false),
-			Method::POST => m=(b"POST\0", true),
-			Method::PUT => m=(b"PUT\0", true),
-			Method::DELETE => m=(b"DELETE\0", false),
-			Method::HEAD => m=(b"HEAD\0", false),
-			Method::OPTIONS => m=(b"OPTIONS\0", false),
-			Method::TRACE => m=(b"TRACE\0", false),
+			Method::GET => m=(b"GET\0", false,false),
+			Method::POST => m=(b"POST\0", true, false),
+			Method::PUT => m=(b"PUT\0", true, false),
+			Method::DELETE => m=(b"DELETE\0", false, false),
+			Method::HEAD => m=(b"HEAD\0", false, true),
+			Method::OPTIONS => m=(b"OPTIONS\0", false, false),
+			Method::TRACE => m=(b"TRACE\0", false, false),
 		}
 		if m.1
 		{
 			// we plan to send a body
 			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_UPLOAD, 1 as c_ulong))?;
+		}
+		if m.2
+		{
+			// don't receive body
+			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_NOBODY, 1 as c_ulong))?;
 		}
 		cr(sys::curl_easy_setopt(easy, sys::CURLOPT_CUSTOMREQUEST, m.0.as_ptr()))?;
 
