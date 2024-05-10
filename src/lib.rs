@@ -92,7 +92,7 @@ pub fn post<'b, R: std::io::Read+'b>(url: &str, r: R)
 /// The payload to send is read from `r`, which can be easily made
 /// with `std::io::Cursor` in case you're using a slice as a source.
 ///
-/// ```
+/// ```no_run
 /// let data = b"something to send";
 /// idcurl::put("http://example.com", std::io::Cursor::new(data))
 ///     .unwrap()

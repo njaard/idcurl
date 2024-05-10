@@ -1,6 +1,6 @@
 [package]
 name = "idcurl"
-version = "0.4.2"
+version = "0.5.0"
 authors = ["Kalle Samuels <ks@ks.ax>"]
 edition = "2018"
 description = "Idiomatic synchronous http client based on curl"
@@ -12,5 +12,5 @@ repository = "https://github.com/njaard/idcurl"
 
 [dependencies]
 curl-sys={version="0.4" }
-http="0.2"
+http="1"
 libc="0.2.42"
