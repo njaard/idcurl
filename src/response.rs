@@ -119,13 +119,15 @@ impl Response
 	{
 		unsafe
 		{
-			let p = std::ptr::null_mut();
+			let mut p: *const i8 = std::ptr::null_mut();
 
 			crate::client::cr(sys::curl_easy_getinfo(
 				self.client.easy,
 				sys::CURLINFO_PRIMARY_IP,
-				&p
+				&mut p
 			))?;
+
+			if p.is_null() { return Ok(""); }
 			std::str::from_utf8(std::ffi::CStr::from_ptr(p).to_bytes())
 				.map_err(|e| Error::new(Kind::Curl(format!("utf-8 decoding: {}",e)), None))
 		}
