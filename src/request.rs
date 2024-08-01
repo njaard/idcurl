@@ -12,9 +12,26 @@ pub struct Request<'body>
 	pub(crate) url: Option<String>,
 	pub(crate) headers: Option<CurlList>,
 	pub(crate) redirect_limit: Option<usize>,
-	pub(crate) request_body: Option<Box<dyn std::io::Read + 'body>>
+	pub(crate) request_body: Option<Box<dyn std::io::Read + 'body>>,
+	pub(crate) proxy: Option<Proxy>,
 }
 
+/// Instead of connecting directly to the host, connect via this proxy
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum Proxy
+{
+	/// Connect to the SOCKS proxy at this address (a url)
+	/// Examples: `http://hostname`, `https://hostname`, `socks5://hostname`.
+	///
+	/// See [curl documentation](https://curl.se/libcurl/c/CURLOPT_PROXY.html)
+	Host(String),
+	/// Instead of making a TCP connection, connect to the Unix domain
+	/// socket with the given path.
+	//
+	// See [curl documentation](https://curl.se/libcurl/c/CURLOPT_UNIX_SOCKET_PATH.html)
+	UnixSocket(String),
+}
 
 pub(crate) struct CurlList
 {
@@ -47,6 +64,7 @@ impl<'body> Request<'body>
 			headers: Some( CurlList{ headers: std::ptr::null_mut() } ),
 			redirect_limit: Some(10),
 			request_body: None,
+			proxy: None,
 		}
 	}
 
@@ -106,6 +124,19 @@ impl<'body> Request<'body>
 	pub fn content_length(mut self, l: u64) -> Self
 	{
 		self.set_content_length(l);
+		self
+	}
+
+	/// Set the proxy, which may also be a unix domain socket
+	pub fn set_proxy(&mut self, proxy: impl Into<Option<Proxy>>)
+	{
+		self.proxy = proxy.into();
+	}
+
+	/// Set the proxy, which may also be a unix domain socket
+	pub fn proxy(mut self, proxy: impl Into<Option<Proxy>>) -> Self
+	{
+		self.proxy = proxy.into();
 		self
 	}
 
@@ -178,6 +209,7 @@ impl<'body> Request<'body>
 				url,
 				headers,
 				redirect_limit,
+				proxy,
 				..
 			} = self;
 
@@ -188,6 +220,7 @@ impl<'body> Request<'body>
 			headers: headers,
 			redirect_limit: redirect_limit,
 			request_body,
+			proxy,
 		}
 	}
 

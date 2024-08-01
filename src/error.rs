@@ -69,6 +69,20 @@ impl Error
 	{
 		&self.kind
 	}
+
+	/// returns true if the error is due to network failures
+	pub fn is_network(&self) -> bool
+	{
+		use Kind::*;
+		matches!(
+			self.kind(),
+			ResolveProxy
+				| ResolveHost
+				| Connect
+				| SendError
+				| RecvError
+		)
+	}
 }
 impl std::fmt::Display for Error
 {

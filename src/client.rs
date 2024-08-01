@@ -66,6 +66,21 @@ impl Client
 			cr(sys::curl_easy_setopt(easy, sys::CURLOPT_MAXREDIRS, n as c_ulong))?;
 		}
 
+		match request.proxy.as_ref()
+		{
+			Some(Proxy::Host(host)) =>
+			{
+				let proxy_host = std::ffi::CString::new(host.as_str()).expect("making string");
+				cr(sys::curl_easy_setopt(easy, sys::CURLOPT_PROXY, proxy_host.as_ptr()))?;
+			},
+			Some(Proxy::UnixSocket(path)) =>
+			{
+				let proxy_host = std::ffi::CString::new(path.as_str()).expect("making string");
+				cr(sys::curl_easy_setopt(easy, sys::CURLOPT_UNIX_SOCKET_PATH, proxy_host.as_ptr()))?;
+			},
+			None => {},
+		}
+
 		let m: (&[u8], bool);
 		match request.method
 		{

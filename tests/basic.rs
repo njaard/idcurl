@@ -211,6 +211,34 @@ fn some_data4()
 }
 
 #[test]
+fn unix_socket()
+{
+	let _ = std::fs::remove_file("tmpsocket");
+	let listener = std::os::unix::net::UnixListener::bind("tmpsocket").unwrap();
+
+	let _t = std::thread::spawn(
+		move ||
+		{
+			let q = listener.accept().unwrap();
+			let mut s = q.0;
+			let mut buf = [0; 10];
+			let _ = s.read_exact(&mut buf);
+			s.write_all(
+				b"HTTP/1.1 200 OK\r\n\
+				Content-Length: 1\r\n\
+				\r\n\
+				a\
+			").unwrap();
+		}
+	);
+	let e = idcurl::Request::new(idcurl::Method::GET, "http://localhost/".to_string())
+		.proxy(idcurl::Proxy::UnixSocket("tmpsocket".to_string()))
+		.send().unwrap();
+	assert_eq!(e.bytes().last().unwrap().unwrap(), b'a');
+	let _ = std::fs::remove_file("tmpsocket");
+}
+
+#[test]
 fn test_ownership()
 {
 	let _ = give_body();

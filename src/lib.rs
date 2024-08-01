@@ -120,7 +120,6 @@ pub fn init()
 	static INIT: Once = Once::new();
 	INIT.call_once(||
 	{
-		platform_init();
 		unsafe
 		{
 			assert_eq!(curl_sys::curl_global_init(curl_sys::CURL_GLOBAL_ALL), 0);
@@ -137,12 +136,4 @@ pub fn init()
 		// function.
 	});
 
-	#[cfg(need_openssl_init)]
-	fn platform_init()
-	{
-		openssl_sys::init();
-	}
-
-	#[cfg(not(need_openssl_init))]
-	fn platform_init() {}
 }
