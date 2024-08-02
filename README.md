@@ -8,6 +8,9 @@ its protocol support).
 
 It's useful if you absolutely don't want to use futures.
 
+One of two crates (along with [isahc](https://crates.io/crates/isahc))
+to support Unix domain sockets!
+
 # Examples
 
 
