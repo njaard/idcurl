@@ -81,6 +81,7 @@ impl Error
 				| Connect
 				| SendError
 				| RecvError
+				| PartialFile
 		)
 	}
 }
